@@ -7,7 +7,7 @@
 
 Name:           google-coral-akmod
 Version:        1.0
-Release:        4.%{snapshotdate}git%{shortcommit}%{?dist}
+Release:        5.%{snapshotdate}git%{shortcommit}%{?dist}
 Summary:        Akmod package for Google Coral Edge TPU (Gasket & Apex)
 License:        GPLv2
 URL:            https://github.com/google/%{repo_name}
@@ -15,7 +15,10 @@ URL:            https://github.com/google/%{repo_name}
 Source0:        %{url}/archive/%{commit}/%{repo_name}-%{shortcommit}.tar.gz
 Source1:        99-google-coral.rules
 Source2:        google-coral.conf
-#Patch0:         fix-for-backported-dma-buf-ns.patch
+Source3:        fix-for-no_llseek.patch
+Source4:        fix-for-module-import-ns.patch
+
+#Patch0:        fix-for-backported-dma-buf-ns.patch
 Patch0:         fix-for-no_llseek.patch
 Patch1:         fix-for-module-import-ns.patch
 
