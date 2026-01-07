@@ -41,7 +41,7 @@ para o Google Coral. Configurações de udev e carregamento de módulos inclusas
 %prep
 %setup -q -n %{repo_name}-%{commit}
 %patch -P 0 -p1
-%patch -P 2 -p1
+%patch -P 1 -p1
 
 %build
 # Preparado para o runtime do akmod
