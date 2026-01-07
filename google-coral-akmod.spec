@@ -15,6 +15,9 @@ URL:            https://github.com/google/%{repo_name}
 Source0:        %{url}/archive/%{commit}/%{repo_name}-%{shortcommit}.tar.gz
 Source1:        99-google-coral.rules
 Source2:        google-coral.conf
+#Patch0:         fix-for-backported-dma-buf-ns.patch
+Patch0:         fix-for-no_llseek.patch
+Patch1:         fix-for-module-import-ns.patch
 
 BuildRequires:  make
 BuildRequires:  gcc
@@ -34,6 +37,8 @@ para o Google Coral. Configurações de udev e carregamento de módulos inclusas
 
 %prep
 %setup -q -n %{repo_name}-%{commit}
+%patch -P 0 -p1
+%patch -P 2 -p1
 
 %build
 # Preparado para o runtime do akmod
