@@ -1,3 +1,4 @@
+%{?akmod_global}
 %global debug_package %{nil}
 %global repo_name gasket-driver
 %global commit      5815ee3908a46a415aac616ac7b9aedcb98a504c
@@ -8,7 +9,7 @@
 # Nome padronizado conforme diretrizes do Fedora Akmod
 Name:           akmod-%{akmod_name}
 Version:        1.0
-Release:        13.%{snapshotdate}git%{shortcommit}%{?dist}
+Release:        14.%{snapshotdate}git%{shortcommit}%{?dist}
 Summary:        Akmod package for Google Coral Edge TPU (Gasket & Apex)
 License:        GPLv2
 URL:            https://github.com/google/%{repo_name}
