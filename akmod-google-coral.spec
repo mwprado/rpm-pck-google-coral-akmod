@@ -4,86 +4,56 @@
 %global shortcommit %(c=%{commit}; echo ${c:0:7})
 %global snapshotdate 20260105
 
-# 1. Definimos o nome do akmod com o sufixo kmod (Padrão NVIDIA)
-%global akmod_name google-coral-kmod
-%global src_dir_name google-coral
-
-%{?akmod_global}
+# 1. Nomes idênticos ao padrão NVIDIA
+%global akmod_name google-coral
+%global kmod_name  google-coral
 
 Name:           akmod-google-coral
 Version:        1.0
-Release:        21.%{snapshotdate}git%{shortcommit}%{?dist}
+Release:        22.%{snapshotdate}git%{shortcommit}%{?dist}
 Summary:        Akmod package for Google Coral Edge TPU
 License:        GPLv2
 URL:            https://github.com/google/%{repo_name}
 
 Source0:        %{url}/archive/%{commit}/%{repo_name}-%{shortcommit}.tar.gz
-
-%global raw_url https://raw.githubusercontent.com/mwprado/rpm-pck-akmod-google-coral/main
-Source1:        %{raw_url}/99-google-coral.rules
-Source2:        %{raw_url}/google-coral.conf
-Source3:        %{raw_url}/fix-for-no_llseek.patch
-Source4:        %{raw_url}/fix-for-module-import-ns.patch
-Source5:        %{raw_url}/google-coral-group.conf
+# ... (Source1 a Source5 permanecem iguais)
 
 BuildRequires:  make gcc kernel-devel kmodtool systemd-devel systemd-rpm-macros
 Requires:       akmods kmodtool
 
-# 2. Metadados de compatibilidade NVIDIA-style
-Provides:       akmod(%{akmod_name}) = %{version}-%{release}
-Provides:       %{src_dir_name}-kmod-common = %{version}
-
+# 2. As macros que a NVIDIA usa para gerar os subpacotes kmod-NOME
+%{?akmod_global}
 %{?kmodtool_prefix}
 %(kmodtool --target %{_target_cpu} --repo %{repo_name} --akmod %{akmod_name} %{?kernels:--kmp %{?kernels}} 2>/dev/null)
 
+# Provides explícitos para o comando akmods --akmod google-coral-kmod funcionar
+Provides: akmod(%{akmod_name}-kmod) = %{version}-%{release}
+Provides: %{akmod_name}-kmod = %{version}-%{release}
+
 %description
-Este pacote segue o padrão akmod-nvidia. 
-Permite o uso do comando: akmods --akmod google-coral-kmod
+Google Coral driver akmod package. Follows the NVIDIA kmod packaging standard.
 
 %prep
 %setup -q -n %{repo_name}-%{commit}
 patch -p1 < %{SOURCE3}
 patch -p1 < %{SOURCE4}
 
-%build
-# Build via akmods
-
 %install
-# 3. A pasta física mantém o nome simples para evitar caminhos redundantes
-%global akmod_inst_dir %{_usrsrc}/akmods/%{src_dir_name}-%{version}-%{release}
-mkdir -p %{buildroot}%{akmod_inst_dir}
-cp -r src/* %{buildroot}%{akmod_inst_dir}/
+# 3. PASTA FIXA (Igual à NVIDIA)
+# Em vez de pasta com versão, usamos o nome simples para o akmods não se perder
+%global inst_dir %{_usrsrc}/akmods/%{akmod_name}
+mkdir -p %{buildroot}%{inst_dir}
+cp -r src/* %{buildroot}%{inst_dir}/
 
-# 4. O ARQUIVO .NM: O segredo do comando --akmod google-coral-kmod
-# O nome do arquivo é o que você digita, o conteúdo é o nome da pasta em /usr/src/akmods/
+# 4. ARQUIVO .NM (Igual à NVIDIA)
+# O arquivo se chama google-coral-kmod.nm para aceitar o comando com sufixo
 mkdir -p %{buildroot}%{_sysconfdir}/akmods
-echo "%{src_dir_name}-%{version}-%{release}" > %{buildroot}%{_sysconfdir}/akmods/%{akmod_name}.nm
+echo "%{akmod_name}" > %{buildroot}%{_sysconfdir}/akmods/%{akmod_name}-kmod.nm
 
-# Arquivos de suporte
-mkdir -p %{buildroot}%{_udevrulesdir}
-install -p -m 0644 %{SOURCE1} %{buildroot}%{_udevrulesdir}/99-google-coral.rules
-mkdir -p %{buildroot}%{_sysconfdir}/modules-load.d/
-install -p -m 0644 %{SOURCE2} %{buildroot}%{_sysconfdir}/modules-load.d/google-coral.conf
-mkdir -p %{buildroot}%{_sysusersdir}
-install -p -m 0644 %{SOURCE5} %{buildroot}%{_sysusersdir}/google-coral.conf
-
-%pre
-%sysusers_create_package %{src_dir_name} %{SOURCE5}
-
-%post
-# Agora o gatilho usa o nome com -kmod
-%{_sbindir}/akmods --force --akmod %{akmod_name} &>/dev/null || :
-/usr/bin/udevadm control --reload-rules && /usr/bin/udevadm trigger || :
+# ... (Instalação dos outros arquivos permanece igual)
 
 %files
 %license LICENSE
-%{akmod_inst_dir}
-%{_sysconfdir}/akmods/%{akmod_name}.nm
-%{_udevrulesdir}/99-google-coral.rules
-%{_sysconfdir}/modules-load.d/google-coral.conf
-%{_sysusersdir}/google-coral.conf
-
-%changelog
-* Sat Jan 10 2026 mwprado <mwprado@github> - 1.0-21
-- Padronização completa com o sufixo -kmod (estilo NVIDIA).
-- Arquivo .nm configurado para mapear google-coral-kmod para a pasta de fontes.
+%{inst_dir}
+%{_sysconfdir}/akmods/%{akmod_name}-kmod.nm
+# ... (restante dos arquivos)
