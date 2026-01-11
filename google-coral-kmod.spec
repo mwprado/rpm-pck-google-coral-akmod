@@ -1,16 +1,14 @@
-# 1. Definições de controle
 %if 0%{?fedora}
 %global buildforkernels akmod
 %endif
 %global debug_package %{nil}
 
-%global akmod_name google-coral
+# Definimos apenas para uso interno, mas não confiaremos nelas para os nomes das seções
 %global kmodsrc_name google-coral-kmodsrc
 
-# Metadados principais
 Name:           google-coral-kmod
 Version:        1.0
-Release:        66%{?dist}
+Release:        68%{?dist}
 Summary:        Kernel module for Google Coral Edge TPU
 License:        GPLv2
 URL:            https://github.com/google/gasket-driver
@@ -19,21 +17,28 @@ Source1:        99-google-coral.rules
 Source2:        google-coral.conf
 Source5:        google-coral-group.conf
 
-# 2. BuildRequires (Padrão NVIDIA)
+# 1. BuildRequires (Estrutura idêntica à do VirtualBox)
 %global AkmodsBuildRequires %{_bindir}/kmodtool, %{kmodsrc_name} = %{version}, xz, time, gcc, make, kernel-devel, elfutils-libelf-devel, systemd-devel, systemd-rpm-macros
 BuildRequires:  %{AkmodsBuildRequires}
 
-# 3. O SEGREDO DO RPM FUSION: Invocação do kmodtool com prefixo
-# Isso garante que o subpacote akmod-google-coral seja criado IMEDIATAMENTE.
+# 2. Invocação do kmodtool (Define macros para o akmod_install)
 %{?kmodtool_prefix}
-%{expand:%(kmodtool --target %{_target_cpu} --repo rpmfusion --kmodname %{name} %{?buildforkernels:--%{buildforkernels}} %{?kernels:--for-kernels "%{?kernels}"} 2>/dev/null) }
+%(kmodtool --target %{_target_cpu} --repo rpmfusion --kmodname %{name} %{?buildforkernels:--%{buildforkernels}} %{?kernels:--for-kernels "%{?kernels}"} 2>/dev/null)
 
 %description
 Package to manage Google Coral Edge TPU kernel modules.
-Follows NVIDIA and VirtualBox packaging standards for RPM Fusion.
+
+# 3. Definição DIRETA do pacote (Sem macros no nome para o rpkg não engasgar)
+%package -n akmod-google-coral
+Summary:        Akmod package for google-coral kernel module(s)
+Requires:       akmods kmodtool
+Requires:       %{kmodsrc_name} = %{version}
+Provides:       akmod(google-coral) = %{version}-%{release}
+
+%description -n akmod-google-coral
+This package installs the infrastructure to build Google Coral modules.
 
 %prep
-# Verificação do kmodtool
 %{?kmodtool_check}
 %setup -q -T -c -n %{name}-%{version}
 
@@ -51,12 +56,12 @@ install -p -m 0644 %{SOURCE2} %{buildroot}%{_sysconfdir}/modules-load.d/google-c
 mkdir -p %{buildroot}%{_sysusersdir}
 install -p -m 0644 %{SOURCE5} %{buildroot}%{_sysusersdir}/google-coral.conf
 
-# 4. Scripts vinculados ao pacote gerado dinamicamente
+# 4. Scripts com nome DIRETO (akmod-google-coral)
 %pre -n akmod-google-coral
-%sysusers_create_package %{akmod_name} %{SOURCE5}
+%sysusers_create_package google-coral %{SOURCE5}
 
 %post -n akmod-google-coral
-%{_sbindir}/akmods --force --akmod %{akmod_name} &>/dev/null || :
+%{_sbindir}/akmods --force --akmod google-coral &>/dev/null || :
 
 %files -n akmod-google-coral
 %{_udevrulesdir}/99-google-coral.rules
@@ -64,6 +69,6 @@ install -p -m 0644 %{SOURCE5} %{buildroot}%{_sysusersdir}/google-coral.conf
 %{_sysusersdir}/google-coral.conf
 
 %changelog
-* Sun Jan 11 2026 mwprado <mwprado@github> - 1.0-66
-- Version 66: Forced kmodtool expansion to ensure akmod-google-coral is visible to rpkg.
-- Removed manual description to avoid collision with dynamic output.
+* Sun Jan 11 2026 mwprado <mwprado@github> - 1.0-68
+- Version 68: Hardcoded package names to bypass Copr/rpkg static parsing errors.
+- Matches NVIDIA's internal structure for broad compatibility.
