@@ -1,9 +1,9 @@
 %global akmod_name google-coral
-%global _specname kmod-google-coral
+%global _internal_name kmod-google-coral
 
 Name:           akmod-google-coral
 Version:        1.0
-Release:        46.20260105git5815ee3%{?dist}
+Release:        47.20260105git5815ee3%{?dist}
 Summary:        Akmod package for Google Coral Edge TPU driver
 License:        GPLv2
 URL:            https://github.com/google/gasket-driver
@@ -15,27 +15,26 @@ Source3:        fix-for-no_llseek.patch
 Source4:        fix-for-module-import-ns.patch
 Source5:        google-coral-group.conf
 
-# Ferramentas necessárias para gerar o pacote interno durante o build
+# Ferramentas para o Inception (gerar o SRPM dentro do build)
 BuildRequires:  rpm-build, gcc, make, sed
 BuildRequires:  systemd-rpm-macros
 
-# Metadado que o utilitário 'akmods' busca no sistema
+# O Provide que o comando 'akmods' usa para te encontrar
 Provides:       akmod(%{akmod_name}) = %{version}-%{release}
 
 %description
-Este pacote instala o Source RPM (SRPM) do driver Google Coral em /usr/src/akmods/.
-O utilitário akmods usará esse SRPM para compilar o módulo para cada novo kernel.
+Este pacote contém o SRPM do driver Google Coral. O utilitário akmods 
+utilizará este arquivo para reconstruir o kmod binário para o seu kernel.
 
 %prep
 %setup -q -n gasket-driver-5815ee3908a46a415aac616ac7b9aedcb98a504c
-# Aplicamos os patches no código que irá para dentro do SRPM
 %patch -P 3 -p1
 %patch -P 4 -p1
 
 %build
-# 1. CRIAMOS O SPEC "INTERNO" (O que vai dentro do SRPM)
-cat << 'EOF' > %{_specname}.spec
-Name:           %{_specname}
+# === PASSO 1: Criar o SPEC do kmod que irá dentro do SRPM ===
+cat << 'EOF' > %{_internal_name}.spec
+Name:           %{_internal_name}
 Version:        %{version}
 Release:        %{release}
 Summary:        Google Coral Edge TPU kernel module
@@ -43,42 +42,41 @@ License:        GPLv2
 Source0:        google-coral-src.tar.gz
 
 %description
-Módulo de kernel compilado dinamicamente pelo akmods.
+Módulo de kernel compilado pelo sistema akmods.
 
 %prep
 %setup -q -n google-coral-src
+
 %build
 make -C /lib/modules/%{?kver}/build M=$(pwd)/src modules
+
 %install
 install -D -m 0644 src/gasket.ko %{buildroot}/lib/modules/%{?kver}/extra/gasket/gasket.ko
 install -D -m 0644 src/apex.ko %{buildroot}/lib/modules/%{?kver}/extra/gasket/apex.ko
 EOF
 
 %install
-# 2. PREPARAÇÃO DO SRPM INTERNO
+# === PASSO 2: Gerar o SRPM Real ===
 mkdir -p rpmbuild/{SOURCES,SPECS,SRPMS}
-# Compactamos o código já patcheado para o SRPM
+# Criamos o tarball com o código patcheado
 tar -czf rpmbuild/SOURCES/google-coral-src.tar.gz .
-cp %{_specname}.spec rpmbuild/SPECS/
+cp %{_internal_name}.spec rpmbuild/SPECS/
 
-# Geramos o SRPM real (o kmod-google-coral.src.rpm)
-rpmbuild -bs rpmbuild/SPECS/%{_specname}.spec \
+# Comando de build do SRPM interno
+rpmbuild -bs rpmbuild/SPECS/%{_internal_name}.spec \
     --define "_topdir $(pwd)/rpmbuild" \
     --define "kver %{kernel_version}"
 
-# 3. INSTALAÇÃO DOS ARQUIVOS NO SISTEMA
+# === PASSO 3: Instalar o SRPM e o link .latest ===
 install -d %{buildroot}%{_usrsrc}/akmods/
+install -p -m 0644 rpmbuild/SRPMS/%{_internal_name}-*.src.rpm %{buildroot}%{_usrsrc}/akmods/%{_internal_name}.src.rpm
 
-# Copiamos o SRPM gerado para a pasta de destino
-# Usamos um nome fixo para facilitar o link .latest
-install -p -m 0644 rpmbuild/SRPMS/%{_specname}-*.src.rpm %{buildroot}%{_usrsrc}/akmods/%{_specname}.src.rpm
-
-# Criamos o link .latest apontando para o arquivo SRPM (Fim do erro 21!)
+# O link crucial que evita o erro 'É um diretório'
 pushd %{buildroot}%{_usrsrc}/akmods/
-ln -s %{_specname}.src.rpm %{akmod_name}.latest
+ln -s %{_internal_name}.src.rpm %{akmod_name}.latest
 popd
 
-# Arquivos de configuração do sistema
+# Configurações de hardware
 install -D -m 0644 %{SOURCE1} %{buildroot}%{_udevrulesdir}/99-google-coral.rules
 install -D -m 0644 %{SOURCE2} %{buildroot}%{_sysconfdir}/modules-load.d/google-coral.conf
 install -D -m 0644 %{SOURCE5} %{buildroot}%{_sysusersdir}/google-coral.conf
@@ -88,13 +86,12 @@ install -D -m 0644 %{SOURCE5} %{buildroot}%{_sysusersdir}/google-coral.conf
 
 %files
 %license LICENSE
-%{_usrsrc}/akmods/%{_specname}.src.rpm
+%{_usrsrc}/akmods/%{_internal_name}.src.rpm
 %{_usrsrc}/akmods/%{akmod_name}.latest
 %{_udevrulesdir}/99-google-coral.rules
 %{_sysconfdir}/modules-load.d/google-coral.conf
 %{_sysusersdir}/google-coral.conf
 
 %changelog
-* Sat Jan 10 2026 mwprado <mwprado@github> - 1.0-46
-- Arquitetura final: Pacote binário akmod carregando o SRPM do kmod.
-- Link .latest agora aponta corretamente para um arquivo .src.rpm.
+* Sat Jan 10 2026 mwprado <mwprado@github> - 1.0-47
+- Arquitetura idêntica ao RPM Fusion: akmod transportando o SRPM do kmod.
