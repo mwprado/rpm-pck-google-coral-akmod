@@ -3,11 +3,12 @@
 %endif
 %global debug_package %{nil}
 
-%global akmod_name google-coral-kmod
+# Sincronizando para o nome que o akmods buscou no log de erro
+%global akmod_name google-coral
 
 Name:           google-coral-kmod
 Version:        1.0
-Release:        33.20260105git5815ee3%{?dist}
+Release:        34.20260105git5815ee3%{?dist}
 Summary:        Google Coral Edge TPU kernel module
 License:        GPLv2
 URL:            https://github.com/google/gasket-driver
@@ -23,12 +24,13 @@ BuildRequires:  %{_bindir}/kmodtool
 BuildRequires:  gcc, make, kernel-devel, elfutils-libelf-devel
 BuildRequires:  systemd-devel, systemd-rpm-macros
 
+# Metadado que o akmods reconheceu no seu teste
 Provides:       akmod(%{akmod_name}) = %{version}-%{release}
 
 %{!?kernels:%{?buildforkernels: %{expand:%( %{_bindir}/kmodtool --target %{_target_cpu} --repo %{name} --akmod %{akmod_name} %{?buildforkernels:--%{buildforkernels}} %{?kernels:--kmp %{?kernels}} 2>/dev/null )}}}
 
 %description
-Google Coral TPU driver. Versão v33 com suporte ao link .latest exigido pelo Fedora 43.
+Google Coral TPU driver. Versão v34 corrigindo o erro de diretório no .latest.
 
 %prep
 %setup -q -n gasket-driver-5815ee3908a46a415aac616ac7b9aedcb98a504c
@@ -36,15 +38,14 @@ Google Coral TPU driver. Versão v33 com suporte ao link .latest exigido pelo Fe
 %patch -P 4 -p1
 
 %install
-# 1. Pasta de fontes
+# 1. Pasta de fontes (Nome curto para bater com o log de erro)
 install -d %{buildroot}%{_usrsrc}/akmods/%{akmod_name}
 cp -r src/* %{buildroot}%{_usrsrc}/akmods/%{akmod_name}/
 
-# 2. O SEGREDO: Criar o link .latest que o script akmods procura
-# O akmods do Fedora 43 usa isso para identificar a versão ativa
-pushd %{buildroot}%{_usrsrc}/akmods/
-ln -s %{akmod_name} %{akmod_name}.latest
-popd
+# 2. O FIX DO .LATEST:
+# Em vez de um link para a pasta, o akmods às vezes quer um link para o spec 
+# ou apenas que o diretório NÃO termine em .latest se ele não for um arquivo.
+# Vamos remover o link .latest do spec e deixar o akmods usar o modo de busca por pasta pura.
 
 # Suporte hardware
 install -D -m 0644 %{SOURCE1} %{buildroot}%{_udevrulesdir}/99-google-coral.rules
@@ -57,11 +58,11 @@ install -D -m 0644 %{SOURCE5} %{buildroot}%{_sysusersdir}/google-coral.conf
 %files
 %license LICENSE
 %{_usrsrc}/akmods/%{akmod_name}
-%{_usrsrc}/akmods/%{akmod_name}.latest
 %{_udevrulesdir}/99-google-coral.rules
 %{_sysconfdir}/modules-load.d/google-coral.conf
 %{_sysusersdir}/google-coral.conf
 
 %changelog
-* Sat Jan 10 2026 mwprado <mwprado@github> - 1.0-33
-- Adicionado link simbólico .latest para compatibilidade com akmods 0.6.2+.
+* Sat Jan 10 2026 mwprado <mwprado@github> - 1.0-34
+- Removido link simbólico que causava erro de leitura 'É um diretório'.
+- Sincronizado nome para 'google-coral' para bater com o cache do akmods.
