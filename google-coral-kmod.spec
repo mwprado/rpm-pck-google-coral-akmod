@@ -1,4 +1,3 @@
-# 1. Definições de Nome (Rigor VirtualBox)
 %global kmodname google-coral
 %global kmodsrc_name google-coral-kmodsrc
 
@@ -9,7 +8,7 @@
 
 Name:           %{kmodname}-kmod
 Version:        1.0
-Release:        79%{?dist}
+Release:        80%{?dist}
 Summary:        Kernel module for Google Coral Edge TPU
 License:        GPLv2
 URL:            https://github.com/google/gasket-driver
@@ -18,18 +17,15 @@ Source1:        99-google-coral.rules
 Source2:        google-coral.conf
 Source5:        google-coral-group.conf
 
-# 2. BuildRequires (Cópia fiel do VirtualBox)
 BuildRequires:  %{_bindir}/kmodtool
 BuildRequires:  %{kmodsrc_name} = %{version}
 BuildRequires:  gcc, make, xz, time, kernel-devel, elfutils-libelf-devel, systemd-devel, systemd-rpm-macros
 
-# 3. A "Mágica" do VirtualBox (Injeção de Código)
-# Esta linha gera o %package, %description, %post e %files do akmod-google-coral
+# 1. Injeção do kmodtool (Cria o pacote akmod-google-coral)
 %{expand:%(/usr/bin/kmodtool --target %{_target_cpu} --repo rpmfusion --kmodname %{name} %{?buildforkernels:--%{buildforkernels}} %{?kernels:--for-kernels "%{?kernels}"} 2>/dev/null) }
 
 %description
 Google Coral Edge TPU kernel module infrastructure.
-Ficheiro SPEC baseado rigorosamente no modelo VirtualBox-kmod do RPM Fusion.
 
 %prep
 %{?kmodtool_check}
@@ -39,12 +35,11 @@ Ficheiro SPEC baseado rigorosamente no modelo VirtualBox-kmod do RPM Fusion.
 # Vazio
 
 %install
-# 4. Expansão Manual da Instalação (Para garantir o .latest no Copr)
+# 2. Instalação manual idêntica à v79
 mkdir -p %{buildroot}%{_usrsrc}/akmods
 ln -sf %{_datadir}/%{kmodsrc_name}-%{version}/%{name}-%{version}.tar.xz \
     %{buildroot}%{_usrsrc}/akmods/%{kmodname}.latest
 
-# Ficheiros de sistema (Udev, Modules-load, Sysusers)
 mkdir -p %{buildroot}%{_udevrulesdir}
 install -p -m 0644 %{SOURCE1} %{buildroot}%{_udevrulesdir}/99-google-coral.rules
 mkdir -p %{buildroot}%{_sysconfdir}/modules-load.d
@@ -52,12 +47,15 @@ install -p -m 0644 %{SOURCE2} %{buildroot}%{_sysconfdir}/modules-load.d/google-c
 mkdir -p %{buildroot}%{_sysusersdir}
 install -p -m 0644 %{SOURCE5} %{buildroot}%{_sysusersdir}/google-coral.conf
 
-# 5. O SEGREDO: O VirtualBox usa esta macro para "pescar" os ficheiros extras
-# para dentro do pacote que o kmodtool gerou.
-%{?kmodtool_files}
+# 3. CORREÇÃO: Mapeando os arquivos para o pacote que o kmodtool criou
+# O VirtualBox faz isso anexando os seus arquivos à lista do akmod.
+%files -n akmod-%{kmodname}
+%{_usrsrc}/akmods/%{kmodname}.latest
+%{_udevrulesdir}/99-google-coral.rules
+%{_sysconfdir}/modules-load.d/google-coral.conf
+%{_sysusersdir}/google-coral.conf
 
 %changelog
-* Sun Jan 11 2026 mwprado <mwprado@github> - 1.0-79
-- Version 79: Strict VirtualBox-kmod clone.
-- Removed all manual package naming and script sections.
-- Uses kmodtool_files macro to handle extra configurations.
+* Sun Jan 11 2026 mwprado <mwprado@github> - 1.0-80
+- Version 80: Fixed "unpackaged files" by explicitly declaring %files for the generated akmod package.
+- This is the final step to match VirtualBox's delivery of extra configs.
