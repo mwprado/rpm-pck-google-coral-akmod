@@ -1,4 +1,3 @@
-# 1. Controle de Build
 %if 0%{?fedora}
 %global buildforkernels akmod
 %endif
@@ -9,29 +8,26 @@
 
 Name:           google-coral-kmod
 Version:        1.0
-Release:        51%{?dist}
+Release:        52%{?dist}
 Summary:        Kernel module for Google Coral Edge TPU
 
 License:        GPLv2
 URL:            https://github.com/google/gasket-driver
 Source1:        99-google-coral.rules
 Source2:        google-coral.conf
-Source5:        google-coral.conf
+Source5:        google-coral-group.conf
 
-# 2. Dependências de Build (Padrão RPM Fusion)
 BuildRequires:  kmodtool
 BuildRequires:  gcc, make, kernel-devel, elfutils-libelf-devel
 BuildRequires:  systemd-devel
-# Exige que o pacote kmodsrc já esteja buildado no Copr
 BuildRequires:  %{kmodsrc_name} = %{version}
 
-# 3. Invocação do kmodtool
 %{?kmodtool_prefix}
 %(kmodtool --target %{_target_cpu} --repo rpmfusion --kmodname %{name} %{?buildforkernels:--%{buildforkernels}} %{?kernels:--for-kernels "%{?kernels}"} 2>/dev/null)
 
 %description
 Infrastructure for Google Coral Edge TPU kernel modules.
-Follows the two-package (kmodsrc + akmod) architecture of RPM Fusion.
+Strictly following the RPM Fusion kmodsrc + akmod pattern.
 
 %package -n akmod-%{akmod_name}
 Summary:        Akmod package for %{akmod_name} kernel module(s)
@@ -43,19 +39,15 @@ Provides:       akmod(%{akmod_name}) = %{version}-%{release}
 This package installs the infrastructure to build Google Coral modules.
 
 %prep
-# Verifica o kmodtool
 %{?kmodtool_check}
-# Cria o diretório de build sem baixar fontes (eles vêm do kmodsrc)
 %setup -q -T -c -n %{name}-%{version}
 
 %build
 # Vazio
 
 %install
-# A macro oficial que lê o tarball de /usr/share e gera o link .latest
 %{?akmod_install}
 
-# Arquivos de sistema
 mkdir -p %{buildroot}%{_udevrulesdir}
 install -p -m 0644 %{SOURCE1} %{buildroot}%{_udevrulesdir}/99-google-coral.rules
 
@@ -77,6 +69,6 @@ install -p -m 0644 %{SOURCE5} %{buildroot}%{_sysusersdir}/google-coral.conf
 %{_sysusersdir}/google-coral.conf
 
 %changelog
-* Sun Jan 11 2026 mwprado <mwprado@github> - 1.0-51
-- Version 51: Absolute cleanup of RHEL/KABI macros to resolve Copr parse errors.
-- Strict two-package architecture implementation.
+* Sun Jan 11 2026 mwprado <mwprado@github> - 1.0-52
+- Version 52: Total removal of problematic RHEL macros.
+- Standardized for Fedora 43 and RPM Fusion compliance.
