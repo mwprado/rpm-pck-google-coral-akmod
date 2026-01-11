@@ -1,15 +1,15 @@
-# 1. Definições Iniciais (Padrão VirtualBox)
+# 1. Definições de Nome (Rigor VirtualBox)
+%global kmodname google-coral
+%global kmodsrc_name google-coral-kmodsrc
+
 %if 0%{?fedora}
 %global buildforkernels akmod
 %endif
 %global debug_package %{nil}
 
-%global akmod_name google-coral
-%global kmodsrc_name google-coral-kmodsrc
-
-Name:           google-coral-kmod
+Name:           %{kmodname}-kmod
 Version:        1.0
-Release:        76%{?dist}
+Release:        79%{?dist}
 Summary:        Kernel module for Google Coral Edge TPU
 License:        GPLv2
 URL:            https://github.com/google/gasket-driver
@@ -18,50 +18,33 @@ Source1:        99-google-coral.rules
 Source2:        google-coral.conf
 Source5:        google-coral-group.conf
 
-# 2. BuildRequires Manuais (O que o kmodtool exigiria)
+# 2. BuildRequires (Cópia fiel do VirtualBox)
 BuildRequires:  %{_bindir}/kmodtool
 BuildRequires:  %{kmodsrc_name} = %{version}
-BuildRequires:  gcc, make, xz, time
-BuildRequires:  kernel-devel, elfutils-libelf-devel
-BuildRequires:  systemd-devel, systemd-rpm-macros
+BuildRequires:  gcc, make, xz, time, kernel-devel, elfutils-libelf-devel, systemd-devel, systemd-rpm-macros
 
-# 3. EXPANSÃO MANUAL DO KMODTOOL (Para não depender de macros externas)
-# Invocamos o script diretamente para gerar os subpacotes binários
+# 3. A "Mágica" do VirtualBox (Injeção de Código)
+# Esta linha gera o %package, %description, %post e %files do akmod-google-coral
 %{expand:%(/usr/bin/kmodtool --target %{_target_cpu} --repo rpmfusion --kmodname %{name} %{?buildforkernels:--%{buildforkernels}} %{?kernels:--for-kernels "%{?kernels}"} 2>/dev/null) }
 
 %description
 Google Coral Edge TPU kernel module infrastructure.
-This spec expands RPM Fusion macros for standalone Copr builds.
-
-# 4. DEFINIÇÃO DO SUBPACOTE AKMOD (Expandido conforme o padrão VirtualBox)
-%package -n akmod-%{akmod_name}
-Summary:        Akmod package for %{akmod_name} kernel module(s)
-Requires:       akmods kmodtool
-Requires:       %{kmodsrc_name} = %{version}
-Provides:       akmod(%{akmod_name}) = %{version}-%{release}
-
-%description -n akmod-%{akmod_name}
-This package installs the akmod infrastructure for Google Coral.
+Ficheiro SPEC baseado rigorosamente no modelo VirtualBox-kmod do RPM Fusion.
 
 %prep
-# Emulação do kmodtool_check
-[ -x /usr/bin/kmodtool ] || exit 1
+%{?kmodtool_check}
 %setup -q -T -c -n %{name}-%{version}
 
 %build
 # Vazio
 
 %install
-# 5. EXPANSÃO MANUAL DA MACRO akmod_install (O Pulo do Gato)
-# Criamos o diretório de destino do akmods
+# 4. Expansão Manual da Instalação (Para garantir o .latest no Copr)
 mkdir -p %{buildroot}%{_usrsrc}/akmods
-
-# Criamos o link simbólico .latest exatamente como o RPM Fusion faz
-# Ele aponta para o tarball instalado pelo pacote kmodsrc
 ln -sf %{_datadir}/%{kmodsrc_name}-%{version}/%{name}-%{version}.tar.xz \
-    %{buildroot}%{_usrsrc}/akmods/%{akmod_name}.latest
+    %{buildroot}%{_usrsrc}/akmods/%{kmodname}.latest
 
-# Instalação dos ficheiros de sistema
+# Ficheiros de sistema (Udev, Modules-load, Sysusers)
 mkdir -p %{buildroot}%{_udevrulesdir}
 install -p -m 0644 %{SOURCE1} %{buildroot}%{_udevrulesdir}/99-google-coral.rules
 mkdir -p %{buildroot}%{_sysconfdir}/modules-load.d
@@ -69,23 +52,12 @@ install -p -m 0644 %{SOURCE2} %{buildroot}%{_sysconfdir}/modules-load.d/google-c
 mkdir -p %{buildroot}%{_sysusersdir}
 install -p -m 0644 %{SOURCE5} %{buildroot}%{_sysusersdir}/google-coral.conf
 
-# 6. SCRIPTS DE MANUTENÇÃO (Expandidos do VirtualBox)
-%pre 
-%sysusers_create_package %{akmod_name} %{SOURCE5}
-
-%post 
-# Força a compilação do módulo após a instalação
-%{_sbindir}/akmods --force --akmod %{akmod_name} &>/dev/null || :
-
-%files -n akmod-%{akmod_name}
-# Lista de ficheiros expandida
-%{_usrsrc}/akmods/%{akmod_name}.latest
-%{_udevrulesdir}/99-google-coral.rules
-%{_sysconfdir}/modules-load.d/google-coral.conf
-%{_sysusersdir}/google-coral.conf
+# 5. O SEGREDO: O VirtualBox usa esta macro para "pescar" os ficheiros extras
+# para dentro do pacote que o kmodtool gerou.
+%{?kmodtool_files}
 
 %changelog
-* Sun Jan 11 2026 mwprado <mwprado@github> - 1.0-76
-- Version 76: Manually expanded akmod_install and kmodtool macros.
-- Removed dependency on external rpmfusion-macros.
-- Fixed .latest symlink path to strictly match VirtualBox behavior.
+* Sun Jan 11 2026 mwprado <mwprado@github> - 1.0-79
+- Version 79: Strict VirtualBox-kmod clone.
+- Removed all manual package naming and script sections.
+- Uses kmodtool_files macro to handle extra configurations.
