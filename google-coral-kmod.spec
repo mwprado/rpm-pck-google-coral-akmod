@@ -8,7 +8,7 @@
 
 Name:           %{kmodname}-kmod
 Version:        1.0
-Release:        85%{?dist}
+Release:        86%{?dist}
 Summary:        Kernel module for Google Coral Edge TPU
 License:        GPLv2
 URL:            https://github.com/google/gasket-driver
@@ -21,12 +21,11 @@ BuildRequires:  %{_bindir}/kmodtool
 BuildRequires:  %{kmodsrc_name} = %{version}
 BuildRequires:  gcc, make, xz, time, kernel-devel, elfutils-libelf-devel, systemd-devel, systemd-rpm-macros
 
-# 1. Injeção dinâmica do kmodtool (Padrão RPM Fusion)
+# 1. Injeção dinâmica do kmodtool
 %{expand:%(/usr/bin/kmodtool --target %{_target_cpu} --repo rpmfusion --kmodname %{name} %{?buildforkernels:--%{buildforkernels}} %{?kernels:--for-kernels "%{?kernels}"} 2>/dev/null) }
 
 %description
 Google Coral Edge TPU kernel module infrastructure.
-Rigorously follows VirtualBox/NVIDIA pattern. .latest points to the SRPM in the same dir.
 
 %prep
 %{?kmodtool_check}
@@ -36,15 +35,12 @@ Rigorously follows VirtualBox/NVIDIA pattern. .latest points to the SRPM in the 
 # Vazio
 
 %install
-# 2. O LINK .LATEST (Rigorosamente conforme NVIDIA/VirtualBox)
-# O akmods espera o link dentro de /usr/src/akmods apontando para o arquivo no mesmo diretório
+# 2. O LINK .LATEST (Rigorosamente conforme seus exemplos)
 mkdir -p %{buildroot}%{_usrsrc}/akmods
-
-# NOTA: O arquivo .src.rpm já é instalado aqui pelo seu pacote 'google-coral-kmodsrc'.
-# Criamos o link relativo para evitar erros de path absoluto.
+# Criamos o link relativo para o SRPM que reside na mesma pasta
 ln -sf %{name}-%{version}-%{release}.src.rpm %{buildroot}%{_usrsrc}/akmods/%{kmodname}.latest
 
-# Instalação de arquivos extras
+# Instalação de ficheiros extras
 mkdir -p %{buildroot}%{_udevrulesdir}
 install -p -m 0644 %{SOURCE1} %{buildroot}%{_udevrulesdir}/99-google-coral.rules
 mkdir -p %{buildroot}%{_sysconfdir}/modules-load.d
@@ -52,11 +48,21 @@ install -p -m 0644 %{SOURCE2} %{buildroot}%{_sysconfdir}/modules-load.d/google-c
 mkdir -p %{buildroot}%{_sysusersdir}
 install -p -m 0644 %{SOURCE5} %{buildroot}%{_sysusersdir}/google-coral.conf
 
-# 3. EMPACOTAMENTO DOS ARQUIVOS (Resolvendo o erro de unpackaged)
-# Como o kmodtool do Fedora não aceita '%files -n' duplicado, usamos a macro interna.
-%global akmod_files %{_usrsrc}/akmods/%{kmodname}.latest %{_udevrulesdir}/99-google-coral.rules %{_sysconfdir}/modules-load.d/google-coral.conf %{_sysusersdir}/google-coral.conf
+# 3. A SOLUÇÃO FINAL PARA O COPR:
+# O kmodtool injetou o pacote akmod-google-coral. 
+# Para adicionar arquivos sem usar "-n" (duplicata), usamos a expansão da lista de arquivos
+# que o próprio kmodtool preparou na variável de ambiente.
+%{?kmodtool_files}
+
+# Se a macro acima falhar no Copr, usamos a forma manual que o VirtualBox 
+# às vezes usa em forks: anexar ao final da lista dinâmica.
+%files -f %{name}-%{_target_cpu}.files
+%{_usrsrc}/akmods/%{kmodname}.latest
+%{_udevrulesdir}/99-google-coral.rules
+%{_sysconfdir}/modules-load.d/google-coral.conf
+%{_sysusersdir}/google-coral.conf
 
 %changelog
-* Sun Jan 11 2026 mwprado <mwprado@github> - 1.0-85
-- Version 85: Strict alignment with NVIDIA/VirtualBox symlink pattern.
-- .latest link is now relative to the SRPM located in /usr/src/akmods/.
+* Sun Jan 11 2026 mwprado <mwprado@github> - 1.0-86
+- Version 86: Used -f flag with the kmodtool generated file list to avoid -n conflicts.
+- Fixed unpackaged files error by merging manual files with dynamic list.
