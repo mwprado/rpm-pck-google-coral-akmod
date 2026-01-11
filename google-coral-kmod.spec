@@ -1,37 +1,37 @@
+# 1. Controle de Build
 %if 0%{?fedora}
 %global buildforkernels akmod
 %endif
 %global debug_package %{nil}
 
 %global akmod_name google-coral
-# Nome do pacote de fontes que criamos separadamente
 %global kmodsrc_name google-coral-kmodsrc
 
 Name:           google-coral-kmod
 Version:        1.0
-Release:        50%{?dist}
+Release:        51%{?dist}
 Summary:        Kernel module for Google Coral Edge TPU
 
 License:        GPLv2
 URL:            https://github.com/google/gasket-driver
 Source1:        99-google-coral.rules
 Source2:        google-coral.conf
-Source5:        google-coral-group.conf
+Source5:        google-coral.conf
 
-# Requisitos de Build - Padrão exato do RPM Fusion
-BuildRequires:  %{_bindir}/kmodtool
+# 2. Dependências de Build (Padrão RPM Fusion)
+BuildRequires:  kmodtool
 BuildRequires:  gcc, make, kernel-devel, elfutils-libelf-devel
 BuildRequires:  systemd-devel
-# O kmodsrc deve estar no repositório Copr para este build passar
+# Exige que o pacote kmodsrc já esteja buildado no Copr
 BuildRequires:  %{kmodsrc_name} = %{version}
 
-# Mágica do kmodtool para gerar os subpacotes kmod
+# 3. Invocação do kmodtool
 %{?kmodtool_prefix}
 %(kmodtool --target %{_target_cpu} --repo rpmfusion --kmodname %{name} %{?buildforkernels:--%{buildforkernels}} %{?kernels:--for-kernels "%{?kernels}"} 2>/dev/null)
 
 %description
-Package to manage Google Coral Edge TPU kernel modules.
-This package follows the RPM Fusion guidelines for akmod infrastructure.
+Infrastructure for Google Coral Edge TPU kernel modules.
+Follows the two-package (kmodsrc + akmod) architecture of RPM Fusion.
 
 %package -n akmod-%{akmod_name}
 Summary:        Akmod package for %{akmod_name} kernel module(s)
@@ -40,24 +40,22 @@ Requires:       %{kmodsrc_name} = %{version}
 Provides:       akmod(%{akmod_name}) = %{version}-%{release}
 
 %description -n akmod-%{akmod_name}
-This package installs the infrastructure to build Google Coral modules
-using the sources provided by the kmodsrc package.
+This package installs the infrastructure to build Google Coral modules.
 
 %prep
-# Verifica se o kmodtool funcionou
+# Verifica o kmodtool
 %{?kmodtool_check}
-# Cria o diretório de build vazio (o akmod_install buscará os fontes em /usr/share)
+# Cria o diretório de build sem baixar fontes (eles vêm do kmodsrc)
 %setup -q -T -c -n %{name}-%{version}
 
 %build
-# Vazio: akmods constroem no cliente
+# Vazio
 
 %install
-# A macro akmod_install busca o tarball em /usr/share/google-coral-kmod-1.0/
-# que deve ter sido instalado pelo pacote google-coral-kmodsrc
+# A macro oficial que lê o tarball de /usr/share e gera o link .latest
 %{?akmod_install}
 
-# Instalação de arquivos de sistema (Udev, Modules-load, Groups)
+# Arquivos de sistema
 mkdir -p %{buildroot}%{_udevrulesdir}
 install -p -m 0644 %{SOURCE1} %{buildroot}%{_udevrulesdir}/99-google-coral.rules
 
@@ -71,17 +69,14 @@ install -p -m 0644 %{SOURCE5} %{buildroot}%{_sysusersdir}/google-coral.conf
 %sysusers_create_package %{akmod_name} %{SOURCE5}
 
 %post -n akmod-%{akmod_name}
-# Dispara o build do akmod imediatamente após a instalação
 %{_sbindir}/akmods --force --akmod %{akmod_name} &>/dev/null || :
 
 %files -n akmod-%{akmod_name}
-%license
-# O akmod_install cuida dos arquivos em /usr/src/akmods/
 %{_udevrulesdir}/99-google-coral.rules
 %{_sysconfdir}/modules-load.d/google-coral.conf
 %{_sysusersdir}/google-coral.conf
 
 %changelog
-* Sun Jan 11 2026 mwprado <mwprado@github> - 1.0-50
-- Version 50: Cleaned up RHEL macros to fix Copr parsing error.
-- Verified akmod_install and kmodsrc dependency.
+* Sun Jan 11 2026 mwprado <mwprado@github> - 1.0-51
+- Version 51: Absolute cleanup of RHEL/KABI macros to resolve Copr parse errors.
+- Strict two-package architecture implementation.
