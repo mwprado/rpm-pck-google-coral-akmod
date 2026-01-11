@@ -8,30 +8,29 @@
 
 Name:           google-coral-kmod
 Version:        1.0
-Release:        57%{?dist}
+Release:        58%{?dist}
 Summary:        Kernel module for Google Coral Edge TPU
-
 License:        GPLv2
 URL:            https://github.com/google/gasket-driver
+
 Source1:        99-google-coral.rules
 Source2:        google-coral.conf
-Source5:        google-coral.conf
+Source5:        google-coral-group.conf
 
-# --- REQUIRES EXATAMENTE COMO VOCÊ QUER ---
+# --- REQUIRES EXATAMENTE COMO O PADRÃO EXIGE ---
 %global AkmodsBuildRequires %{_bindir}/kmodtool, %{kmodsrc_name} = %{version}, gcc, make, kernel-devel, elfutils-libelf-devel
 BuildRequires:  %{AkmodsBuildRequires}
 BuildRequires:  systemd-devel
 BuildRequires:  systemd-rpm-macros
 
-# --- O PULO DO GATO: FILTRANDO O OUTPUT DO KMODTOOL ---
-# Executamos o kmodtool, mas filtramos (via sed) qualquer linha que contenha 'rhel'
-# Isso impede que o erro de 'Unknown tag' aconteça no Fedora 43.
+# O PONTO CRUCIAL: O kmodtool deve ser chamado aqui, 
+# APÓS os BuildRequires e ANTES da %description.
 %{?kmodtool_prefix}
-%(kmodtool --target %{_target_cpu} --repo rpmfusion --kmodname %{name} %{?buildforkernels:--%{buildforkernels}} %{?kernels:--for-kernels "%{?kernels}"} 2>/dev/null | sed '/rhel/d')
+%(kmodtool --target %{_target_cpu} --repo rpmfusion --kmodname %{name} %{?buildforkernels:--%{buildforkernels}} %{?kernels:--for-kernels "%{?kernels}"} 2>/dev/null)
 
 %description
-Infrastructure for Google Coral Edge TPU kernel modules.
-Filtered kmodtool output to support Fedora 43 strict parsing.
+Package to manage Google Coral Edge TPU kernel modules.
+This package follows the RPM Fusion guidelines for akmod infrastructure.
 
 %package -n akmod-%{akmod_name}
 Summary:        Akmod package for %{akmod_name} kernel module(s)
@@ -43,7 +42,6 @@ Provides:       akmod(%{akmod_name}) = %{version}-%{release}
 This package installs the infrastructure to build Google Coral modules.
 
 %prep
-# Mantemos o kmodtool_check agora que o output está limpo
 %{?kmodtool_check}
 %setup -q -T -c -n %{name}-%{version}
 
@@ -51,11 +49,10 @@ This package installs the infrastructure to build Google Coral modules.
 # Vazio
 
 %install
-# Agora que usamos --repo rpmfusion no kmodtool acima, a macro akmod_install 
-# deve funcionar corretamente para gerar o link .latest
+# A macro akmod_install do RPM Fusion busca o tarball em /usr/share/
+# instalado pelo pacote google-coral-kmodsrc.
 %{?akmod_install}
 
-# Arquivos de sistema
 mkdir -p %{buildroot}%{_udevrulesdir}
 install -p -m 0644 %{SOURCE1} %{buildroot}%{_udevrulesdir}/99-google-coral.rules
 mkdir -p %{buildroot}%{_sysconfdir}/modules-load.d
@@ -75,6 +72,5 @@ install -p -m 0644 %{SOURCE5} %{buildroot}%{_sysusersdir}/google-coral.conf
 %{_sysusersdir}/google-coral.conf
 
 %changelog
-* Sun Jan 11 2026 mwprado <mwprado@github> - 1.0-57
-- Version 57: Filtered kmodtool output to remove problematic RHEL tags.
-- Restored --repo rpmfusion flag for proper akmod_install integration.
+* Sun Jan 11 2026 mwprado <mwprado@github> - 1.0-58
+- Version 58: Fixed kmodtool invocation placement to avoid 'Unknown tag %global' error.
