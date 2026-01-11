@@ -8,13 +8,12 @@
 %global kmodsrc_name google-coral-kmodsrc
 
 # 2. Invocação do kmodtool (Exatamente como no VirtualBox/NVIDIA)
-# Note que usamos a macro %{expand:...} para garantir a injeção do código
 %{?kmodtool_prefix}
 %{expand:%(kmodtool --target %{_target_cpu} --repo rpmfusion --kmodname %{name} %{?buildforkernels:--%{buildforkernels}} %{?kernels:--for-kernels "%{?kernels}"} 2>/dev/null) }
 
 Name:           google-coral-kmod
 Version:        1.0
-Release:        61%{?dist}
+Release:        62%{?dist}
 Summary:        Kernel module for Google Coral Edge TPU
 License:        GPLv2
 URL:            https://github.com/google/gasket-driver
@@ -23,12 +22,9 @@ Source1:        99-google-coral.rules
 Source2:        google-coral.conf
 Source5:        google-coral-group.conf
 
-# 3. AkmodsBuildRequires (Estrutura idêntica à do VirtualBox) 
+# 3. AkmodsBuildRequires (Ajustado para Copr: removido a meta-dependência do RPM Fusion)
 %global AkmodsBuildRequires %{_bindir}/kmodtool, %{kmodsrc_name} = %{version}, xz, time, gcc, make, kernel-devel, elfutils-libelf-devel, systemd-devel, systemd-rpm-macros
 BuildRequires:  %{AkmodsBuildRequires}
-
-# 4. Invocação adicional para kernels específicos (caso existam)
-%{!?kernels:BuildRequires: buildsys-build-rpmfusion-kerneldevpkgs-%{?buildforkernels:%{buildforkernels}}%{!?buildforkernels:current}-%{_target_cpu} }
 
 %description
 Package to manage Google Coral Edge TPU kernel modules.
@@ -44,17 +40,17 @@ Provides:       akmod(%{akmod_name}) = %{version}-%{release}
 This package installs the infrastructure to build Google Coral modules.
 
 %prep
-# Verificação do kmodtool (Padrão NVIDIA) 
+# Verificação do kmodtool
 %{?kmodtool_check}
 
-# Prepara o diretório de build (Padrão VirtualBox: setup -T -c) 
+# Prepara o diretório de build
 %setup -q -T -c -n %{name}-%{version}
 
 %build
 # Vazio
 
 %install
-# A macro akmod_install busca o tarball no kmodsrc 
+# A macro akmod_install busca o tarball no kmodsrc
 %{?akmod_install}
 
 # Instalação de arquivos extras
@@ -75,3 +71,8 @@ install -p -m 0644 %{SOURCE5} %{buildroot}%{_sysusersdir}/google-coral.conf
 %{_udevrulesdir}/99-google-coral.rules
 %{_sysconfdir}/modules-load.d/google-coral.conf
 %{_sysusersdir}/google-coral.conf
+
+%changelog
+* Sun Jan 11 2026 mwprado <mwprado@github> - 1.0-62
+- Version 62: Fixed buildsys-build-rpmfusion-kerneldevpkgs dependency for Copr.
+- Added mandatory changelog entry.
