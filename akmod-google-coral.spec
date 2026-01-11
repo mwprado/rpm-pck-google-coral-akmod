@@ -3,12 +3,12 @@
 %endif
 %global debug_package %{nil}
 
-# Nome curto que o akmods busca no diretório
+# Nome curto para o sistema de cache
 %global akmod_name google-coral
 
 Name:           google-coral-kmod
 Version:        1.0
-Release:        39.20260105git5815ee3%{?dist}
+Release:        40.20260105git5815ee3%{?dist}
 Summary:        Google Coral Edge TPU kernel module
 License:        GPLv2
 URL:            https://github.com/google/gasket-driver
@@ -24,14 +24,14 @@ BuildRequires:  %{_bindir}/kmodtool
 BuildRequires:  gcc, make, kernel-devel, elfutils-libelf-devel
 BuildRequires:  systemd-devel, systemd-rpm-macros
 
-# Metadado essencial para o comando 'akmods --akmod google-coral'
+# O metadado que faz o link entre o comando e o arquivo
 Provides:       akmod(%{akmod_name}) = %{version}-%{release}
 
 %{!?kernels:%{?buildforkernels: %{expand:%( %{_bindir}/kmodtool --target %{_target_cpu} --repo %{name} --akmod %{akmod_name} %{?buildforkernels:--%{buildforkernels}} %{?kernels:--kmp %{?kernels}} 2>/dev/null )}}}
 
 %description
-Google Coral TPU driver. Versão v39: Instala o código como um arquivo 
-compactado para satisfazer o akmodsbuild do Fedora 43.
+Google Coral TPU driver. Esta versão instala os fontes preparados para que 
+o akmodsbuild possa gerar o SRPM dinamicamente.
 
 %prep
 %setup -q -n gasket-driver-5815ee3908a46a415aac616ac7b9aedcb98a504c
@@ -39,18 +39,17 @@ compactado para satisfazer o akmodsbuild do Fedora 43.
 %patch -P 4 -p1
 
 %build
-# O build real ocorre no lado do cliente via akmods
+# Nada a fazer aqui, o build é no cliente.
 
 %install
-# 1. DIRETÓRIO DE FONTES (Padrão NVIDIA)
+# 1. DIRETÓRIO DE DESTINO
 install -d %{buildroot}%{_usrsrc}/akmods/
 
-# 2. O PULO DO GATO: Instalamos o arquivo de fontes (tarball) diretamente.
-# O akmodsbuild aceita arquivos compactados que contenham um Makefile/Spec.
+# 2. INSTALANDO O TARBALL (O akmodsbuild consegue ler o .tar.gz se houver um spec dentro)
+# Para garantir, vamos colocar o nome que o akmods gosta.
 install -p -m 0644 %{SOURCE0} %{buildroot}%{_usrsrc}/akmods/%{name}-%{version}.tar.gz
 
-# 3. O LINK .LATEST (Apontando para o ARQUIVO, não para a pasta)
-# Isso evita o erro: "falha na leitura: É um diretório"
+# 3. O LINK .LATEST (Apontando para o ARQUIVO)
 pushd %{buildroot}%{_usrsrc}/akmods/
 ln -s %{name}-%{version}.tar.gz %{akmod_name}.latest
 popd
@@ -72,5 +71,5 @@ install -D -m 0644 %{SOURCE5} %{buildroot}%{_sysusersdir}/google-coral.conf
 %{_sysusersdir}/google-coral.conf
 
 %changelog
-* Sat Jan 10 2026 mwprado <mwprado@github> - 1.0-39
-- Substituído diretório por arquivo tarball no link .latest para evitar Erro 21.
+* Sat Jan 10 2026 mwprado <mwprado@github> - 1.0-40
+- Entrega do código via tarball para evitar erro de diretório no akmodsbuild.
