@@ -22,7 +22,7 @@ Source2:        google-coral.conf
 Source5:        google-coral-group.conf
 
 # Correção: Removido o texto "Fusion" solto que quebrava o parser 
-%global AkmodsBuildRequires %{_bindir}/kmodtool, %{kmodsrc_name} = %{version}, xz, time, gcc, make, kernel-devel, elfutils-libelf-devel, systemd-devel, systemd-rpm-macros
+%global AkmodsBuildRequires %{_bindir}/kmodtool %{kmodsrc_name} = %{version} xz time gcc make kernel-devel elfutils-libelf-devel systemd-devel
 BuildRequires:  %{AkmodsBuildRequires}
 
 # kmodtool does its magic here
