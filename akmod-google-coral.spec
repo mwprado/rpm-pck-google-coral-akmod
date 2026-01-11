@@ -1,10 +1,9 @@
-# 1. Definições de controle (Idêntico ao VirtualBox/NVIDIA)
 %if 0%{?fedora}
 %global buildforkernels akmod
 %endif
 %global debug_package %{nil}
 
-# Fallback para o Copr
+# Definição manual para o Copr
 %global AkmodsBuildRequires gcc, make, kernel-devel, kmodtool, elfutils-libelf-devel
 
 %global akmod_name google-coral
@@ -14,8 +13,8 @@
 
 Name:           google-coral-kmod
 Version:        1.0
-Release:        45.git%{shortcommit}%{?dist}
-Summary:        Módulos do kernel para Google Coral (Padrão RPM Fusion)
+Release:        46.git%{shortcommit}%{?dist}
+Summary:        Módulos do kernel para Google Coral (Padrão NVIDIA/VirtualBox)
 
 License:        GPLv2
 URL:            https://github.com/google/%{repo_name}
@@ -30,16 +29,15 @@ BuildRequires:  %{AkmodsBuildRequires}
 BuildRequires:  systemd-devel
 BuildRequires:  systemd-rpm-macros
 
-# 2. Invocação do kmodtool (O "Cérebro" do processo)
+# O kmodtool faz a mágica de criar os subpacotes
 %{?kmodtool_prefix}
 %(kmodtool --target %{_target_cpu} --repo %{repo_name} --akmod %{akmod_name} %{?kernels:--kmp %{?kernels}} 2>/dev/null)
 
 %description
-Pacote de driver para Google Coral. Esta versão usa a macro akmod_install 
-para gerar o link simbólico .latest e o SRPM em /usr/src/akmods/.
+Driver Google Coral. Esta versão força a criação do link .latest e do SRPM.
 
 %package -n akmod-%{akmod_name}
-Summary:        Akmod package for %{akmod_name} kernel module(s)
+Summary:        Akmod package for %{akmod_name}
 Requires:       akmods kmodtool
 Provides:       akmod(%{akmod_name}) = %{version}-%{release}
 
@@ -54,20 +52,24 @@ Código-fonte patcheado para compilação via akmods.
 patch -p1 < %{SOURCE3}
 patch -p1 < %{SOURCE4}
 
-# Criamos a pasta que o akmod_install vai usar para gerar o SRPM
-mkdir -p _kmod_build_%{_target_cpu}
-cp -r src/* _kmod_build_%{_target_cpu}/
+# A NVIDIA prepara o diretório desta forma para a macro akmod_install funcionar
+mkdir -p %{akmod_name}-%{version}
+cp -a src/* %{akmod_name}-%{version}/
+# Criamos um tarball interno que a macro akmod_install vai converter em SRPM
+tar -czf %{akmod_name}-%{version}.tar.gz %{akmod_name}-%{version}
 
 %build
-# O build real ocorre via akmods no cliente
+# Vazio
 
 %install
-# A "MÁGICA" QUE ESTAVA FALTANDO:
-# Esta macro gera o .src.rpm e o link .latest em /usr/src/akmods/
-# Ela substitui o "mkdir -p %{buildroot}%{_usrsrc}/akmods/..."
+# Em vez de copiar para /usr/src/akmods, usamos a macro que o RPM Fusion usa
+# Ela exige que o tarball esteja no diretório atual
+install -D -m 0644 %{akmod_name}-%{version}.tar.gz %{buildroot}%{_datadir}/%{akmod_name}/%{akmod_name}-%{version}.tar.gz
+
+# Esta macro agora terá o "combustível" (tarball) para criar o SRPM e o link .latest
 %{?akmod_install}
 
-# Instalação de arquivos de sistema
+# Arquivos de sistema
 mkdir -p %{buildroot}%{_udevrulesdir}
 install -p -m 0644 %{SOURCE1} %{buildroot}%{_udevrulesdir}/99-google-coral.rules
 mkdir -p %{buildroot}%{_sysconfdir}/modules-load.d
@@ -83,12 +85,12 @@ install -p -m 0644 %{SOURCE5} %{buildroot}%{_sysusersdir}/google-coral.conf
 
 %files -n akmod-%{akmod_name}
 %license LICENSE
-# Note: A macro akmod_install já adiciona os arquivos em /usr/src/akmods/ à lista de arquivos
+# A macro akmod_install adiciona automaticamente os itens em /usr/src/akmods/
+%{_datadir}/%{akmod_name}/
 %{_udevrulesdir}/99-google-coral.rules
 %{_sysconfdir}/modules-load.d/google-coral.conf
 %{_sysusersdir}/google-coral.conf
 
 %changelog
-* Sun Jan 11 2026 mwprado <mwprado@github> - 1.0-45
-- Versão 45: Adição da macro akmod_install.
-- Agora gera o SRPM e o link .latest em /usr/src/akmods/, idêntico ao NVIDIA e VirtualBox.
+* Sun Jan 11 2026 mwprado <mwprado@github> - 1.0-46
+- Versão 46: Preparação de tarball interno para forçar criação de SRPM e link .latest.
