@@ -8,7 +8,7 @@
 
 Name:           %{kmodname}-kmod
 Version:        1.0
-Release:        89%{?dist}
+Release:        90%{?dist}
 Summary:        Kernel module for Google Coral Edge TPU
 License:        GPLv2
 URL:            https://github.com/google/gasket-driver
@@ -21,12 +21,12 @@ BuildRequires:  %{_bindir}/kmodtool
 BuildRequires:  %{kmodsrc_name} = %{version}
 BuildRequires:  gcc, make, xz, time, kernel-devel, elfutils-libelf-devel, systemd-devel, systemd-rpm-macros
 
-# 1. Invocação do kmodtool (Define o pacote akmod-google-coral dinamicamente)
-%{?kmodtool_prefix}
+# 1. Injeção do kmodtool (Define o pacote akmod-google-coral)
 %{expand:%(/usr/bin/kmodtool --target %{_target_cpu} --repo rpmfusion --kmodname %{name} %{?buildforkernels:--%{buildforkernels}} %{?kernels:--for-kernels "%{?kernels}"} 2>/dev/null) }
 
 %description
 Google Coral Edge TPU kernel module infrastructure.
+Rigorously follows VirtualBox-kmod and Kmods2 documentation.
 
 %prep
 %{?kmodtool_check}
@@ -38,7 +38,7 @@ Google Coral Edge TPU kernel module infrastructure.
 %install
 # 2. Instalação (Rigor VirtualBox)
 mkdir -p %{buildroot}%{_usrsrc}/akmods
-# O link .latest aponta para o SRPM que está no mesmo diretório (conforme seus exemplos)
+# Link relativo para o SRPM no mesmo diretório
 ln -sf %{name}-%{version}-%{release}.src.rpm %{buildroot}%{_usrsrc}/akmods/%{kmodname}.latest
 
 mkdir -p %{buildroot}%{_udevrulesdir}
@@ -48,16 +48,20 @@ install -p -m 0644 %{SOURCE2} %{buildroot}%{_sysconfdir}/modules-load.d/google-c
 mkdir -p %{buildroot}%{_sysusersdir}
 install -p -m 0644 %{SOURCE5} %{buildroot}%{_sysusersdir}/google-coral.conf
 
-# 3. ATRIBUIÇÃO DOS ARQUIVOS (O Padrão VirtualBox)
-# Definimos esta macro ANTES da chamada de arquivos do kmodtool.
-# O script kmodtool usa essa macro para preencher a seção %files do pacote akmod.
-%global kmodtool_files %{_udevrulesdir}/99-google-coral.rules %{_sysconfdir}/modules-load.d/google-coral.conf %{_sysusersdir}/google-coral.conf %{_usrsrc}/akmods/%{kmodname}.latest
+# 3. SOLUÇÃO DEFINITIVA PARA O ERRO DE EXECUÇÃO:
+# Em vez de chamar a macro que o shell tenta executar, nós anexamos os arquivos
+# manualmente no arquivo de lista que o kmodtool gerou para o akmod.
+# O arquivo de lista chama-se 'akmod-%{kmodname}.files' (ou similar)
+echo "%{_usrsrc}/akmods/%{kmodname}.latest" >> akmod-%{kmodname}.files
+echo "%{_udevrulesdir}/99-google-coral.rules" >> akmod-%{kmodname}.files
+echo "%{_sysconfdir}/modules-load.d/google-coral.conf" >> akmod-%{kmodname}.files
+echo "%{_sysusersdir}/google-coral.conf" >> akmod-%{kmodname}.files
 
-# Chamamos a macro que injeta os arquivos na seção %files correta do subpacote
-%{?kmodtool_files}
+%files -f akmod-%{kmodname}.files
+# Esta seção herda a lista gerada pelo kmodtool + nossos arquivos extras.
 
 %changelog
-* Tue Jan 13 2026 mwprado <mwprado@github> - 1.0-89
-- Version 89: Implemented kmodtool_files macro to assign files to the dynamic akmod package.
-- Removed manual %files section to avoid container package conflicts.
-- Follows strict VirtualBox/RPM Fusion directory structure.
+* Tue Jan 13 2026 mwprado <mwprado@github> - 1.0-90
+- Version 90: Fixed shell execution error in %install.
+- Manually appended extra files to the kmodtool generated file list.
+- Strictly followed NVIDIA/VirtualBox symlink pattern.
