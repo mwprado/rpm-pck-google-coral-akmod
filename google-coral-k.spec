@@ -38,8 +38,8 @@ This package provides the kernel driver for Google Coral devices (Gasket/Apex).
 pushd main/ # Ajuste conforme o nome da pasta dentro do tar.gz
 
 # 2. Aplica seus patches aqui, antes da replicação
-%patch0 -p1
-%patch1 -p1
+%patch 0 -p1
+%patch 1 -p1
 
 popd
 
